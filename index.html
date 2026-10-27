@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>body{margin:0}[hidden]{display:none!important}</style></head><body>
+<title>設備故障小島</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: hex-island map (left) + detail panel (right, sticky); stacks on phones. Island colour = failure load (sand → rust). */
+:root{
+  --bg:#EEF3F4; --panel:#FFFFFF; --ink:#14232A; --muted:#5A6B73; --line:#D5DEE2;
+  --sea:#CFE3E8; --sea-wave:#BBD5DC; --route:#123F55; --accent:#C4501A; --chip:#E3ECEF;
+  --l0:#F4E7CC; --l1:#EFCB98; --l2:#E5A266; --l3:#D2733C; --l4:#AE4A1E;
+  --sans:"Noto Sans TC","Microsoft JhengHei","PingFang TC",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F171B; --panel:#162127; --ink:#E5ECEF; --muted:#93A4AD; --line:#2A3A42;
+  --sea:#14303A; --sea-wave:#1B3C48; --route:#9FD3EA; --accent:#F08A4B; --chip:#1E2E36;
+  --l0:#5B5140; --l1:#7E6340; --l2:#A06A3A; --l3:#BF6A35; --l4:#D9622A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F171B; --panel:#162127; --ink:#E5ECEF; --muted:#93A4AD; --line:#2A3A42;
+  --sea:#14303A; --sea-wave:#1B3C48; --route:#9FD3EA; --accent:#F08A4B; --chip:#1E2E36;
+  --l0:#5B5140; --l1:#7E6340; --l2:#A06A3A; --l3:#BF6A35; --l4:#D9622A; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{background:var(--panel);border-bottom:1px solid var(--line)}
+header .wrap{padding-block:18px 12px;display:flex;flex-wrap:wrap;gap:4px 24px;align-items:baseline;justify-content:space-between}
+h1{margin:0;font-size:26px;font-weight:900;letter-spacing:.04em}
+h1 small{margin-left:10px;font-size:12px;font-weight:500;color:var(--accent);border:1px solid var(--accent);border-radius:3px;padding:0 6px;vertical-align:4px;letter-spacing:.08em}
+.meta{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;background:var(--panel);border-bottom:1px solid var(--line)}
+.bar .wrap{padding-block:10px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+#q{flex:1 1 280px;min-width:0;font:inherit;font-size:14px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 11px}
+label.chk{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted);white-space:nowrap}
+#period{font:inherit;font-size:14px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+.yrs{display:flex;align-items:flex-end;gap:4px;height:96px;padding-top:14px}
+.yr{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;background:none;border:0;padding:0;cursor:pointer;gap:3px}
+.yr i{display:block;width:100%;max-width:26px;background:var(--l2);border-radius:2px 2px 0 0;min-height:1px}
+.yr.on i{background:var(--route)}
+.yr .n{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.yr .y{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.yr.on .y{color:var(--ink);font-weight:600}
+button{font:inherit;color:inherit}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main .wrap{padding-block:16px 40px;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){main .wrap{grid-template-columns:minmax(0,1fr)}}
+.mapcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.chips .lab{font-size:12px;color:var(--muted);align-self:center;margin-right:2px;letter-spacing:.05em}
+.chip{font-size:13px;border:1px solid var(--line);background:var(--chip);border-radius:999px;padding:3px 11px;cursor:pointer;white-space:nowrap;font-variant-numeric:tabular-nums}
+.chip[aria-pressed=true]{background:var(--route);border-color:var(--route);color:var(--panel)}
+.chip .c{font-family:var(--mono);font-size:12px;opacity:.75;margin-left:4px}
+svg.map{display:block;width:100%;height:auto;max-width:100%}
+.isle{cursor:pointer}
+.isle .shape{stroke:var(--panel);stroke-width:5;stroke-linejoin:round;transition:transform .2s}
+.isle:hover .shape,.isle:focus-visible .shape{stroke:var(--route)}
+.isle.sel .shape{stroke:var(--route);stroke-width:6}
+.isle.dim{opacity:.28}
+.isle text{pointer-events:none}
+.isle .nm{font-size:15px;font-weight:700}
+.isle .ct{font-family:var(--mono);font-size:22px;font-weight:600}
+.isle .sub{font-size:10.5px}
+.isle .bld{fill:var(--panel);opacity:.85}
+.route{fill:none;stroke:var(--route);stroke-width:4;stroke-linecap:round;stroke-dasharray:2 9;animation:flow 1.2s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-22}}
+@media (prefers-reduced-motion:reduce){.route{animation:none}.isle .shape{transition:none}}
+.badge rect{fill:var(--route)}
+.badge text{fill:var(--panel);font-family:var(--mono);font-size:12px;font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:12px;color:var(--muted);margin-top:8px}
+.legend .sw{display:inline-flex;gap:2px;vertical-align:middle}
+.legend .sw i{display:block;width:16px;height:10px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;min-width:0;position:sticky;top:calc(env(safe-area-inset-top,0px) + 70px);max-height:calc(100vh - 90px);overflow:auto}
+@media (max-width:900px){.panel{position:static;max-height:none}}
+.panel h2{margin:0 0 2px;font-size:20px;font-weight:900;letter-spacing:.03em}
+.panel .cats{font-size:12px;color:var(--muted);margin:0 0 10px}
+.panel h3{font-size:14px;margin:18px 0 8px;color:var(--route);letter-spacing:.04em}
+.kpis{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.kpis b{display:block;font-family:var(--mono);font-size:22px;color:var(--ink);font-weight:600;line-height:1.2}
+.rows{display:grid;gap:2px}
+.r{display:grid;grid-template-columns:minmax(0,11em) minmax(0,1fr) 3.4em;gap:10px;align-items:center;font-size:13px;padding:3px 0}
+.r button{background:none;border:0;padding:0;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;overflow-wrap:anywhere}
+.r .track{display:block;height:9px;background:var(--chip);border-radius:2px;overflow:hidden}
+.r .fill{display:block;height:100%;background:var(--l3)}
+.r .v{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+.grp{border-top:1px solid var(--line);padding:10px 0}
+.grp h4{margin:0;font-size:14px;display:flex;justify-content:space-between;gap:10px}
+.grp h4 span:last-child{font-family:var(--mono);color:var(--accent);white-space:nowrap}
+.grp .desc{font-size:12px;color:var(--muted)}
+.grp ol{margin:6px 0 0;padding-left:20px;display:grid;gap:4px;font-size:13px}
+.grp ol .a{display:block;color:var(--muted)}
+.grp ol .a::before{content:"對策 ";color:var(--route);font-size:11px;font-weight:500}
+.grp ol .k{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:6px}
+.vague{color:var(--accent);font-size:11px}
+.more{display:block;margin:10px 0 0;font-size:13px;padding:6px 14px;border-radius:6px;border:1px solid var(--line);background:var(--bg);cursor:pointer}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:12.5px;min-width:620px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--chip);font-weight:500;white-space:nowrap}
+td.num{font-family:var(--mono);white-space:nowrap;font-variant-numeric:tabular-nums}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.back{font-size:13px;background:none;border:0;color:var(--route);cursor:pointer;padding:0;margin-bottom:6px;text-decoration:underline;text-underline-offset:3px}
+.empty{padding:20px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:8px}
+footer{color:var(--muted);font-size:12px;text-align:center;padding-block:0 28px}
+
+/* ---- cute isometric theme ---- */
+:root{--sea:#9FD8E6;--sea-hi:#CDEFF6;--foam:#FFFFFF;--sand:#F6E3B4;--soil-l:#C99B6D;--soil-r:#A97A50;--grass-edge:#FFFFFF;
+ --g0:#9ED99A;--g1:#CFE68A;--g2:#FFD87A;--g3:#FFAE6B;--g4:#F2785C;--m0:#5BA3D9;--m1:#9A7BD6;--m2:#3FB6A8;
+ --wall-l:#F7F7F3;--wall-r:#D5D9DD;--win:#6CC6E8;--alarm:#FF4D4D;--smoke:#A3ABB0;--flag:#3BB273;--tree:#4CAF6A;
+ --sign:#FFFFFF;--sign-ink:#1E2F38;--pill:#1F3B4D;--pill-ink:#FFFFFF;--suit:#2F7BD9;--skin:#FFD3B0;--hat:#FFC83D;--wrench:#6F7C86;--shadow:#1E2F3833}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--sea:#123A4E;--sea-hi:#1D5570;--foam:#2F6E8A;--sand:#7F6E4C;--soil-l:#6E5338;--soil-r:#57402A;--grass-edge:#D8E8D0;
+ --g0:#5E9C5B;--g1:#8FA455;--g2:#BF9C4A;--g3:#C9773F;--g4:#C9533C;--wall-l:#D9DDE0;--wall-r:#A9B1B7;--sign:#22313A;--sign-ink:#E8EEF1;--pill:#E8EEF1;--pill-ink:#14232A;--shadow:#00000055}}
+:root[data-theme="dark"]{--sea:#123A4E;--sea-hi:#1D5570;--foam:#2F6E8A;--sand:#7F6E4C;--soil-l:#6E5338;--soil-r:#57402A;--grass-edge:#D8E8D0;
+ --g0:#5E9C5B;--g1:#8FA455;--g2:#BF9C4A;--g3:#C9773F;--g4:#C9533C;--wall-l:#D9DDE0;--wall-r:#A9B1B7;--sign:#22313A;--sign-ink:#E8EEF1;--pill:#E8EEF1;--pill-ink:#14232A;--shadow:#00000055}
+.isle .shape{stroke:none}
+.isle .lift{transition:transform .2s ease}
+.isle:hover .lift,.isle:focus-visible .lift{transform:translateY(-6px)}
+.isle.sel .shape{stroke:var(--route);stroke-width:3}
+.isle.sel .sign rect{stroke:var(--route);stroke-width:2}
+.isle.dim{opacity:.33}
+.isle .nm{font-size:16px;font-weight:700;fill:var(--sign-ink)}
+.isle .ct{font-family:var(--mono);font-size:16px;font-weight:600;fill:var(--pill-ink)}
+.badge text{font-size:14px}
+.isle .sign rect{filter:drop-shadow(0 2px 0 var(--shadow))}
+.blink{animation:blink 1.1s steps(2) infinite}
+@keyframes blink{50%{opacity:.25}}
+.puff{animation:puff 2.7s ease-out infinite;opacity:0}
+@keyframes puff{0%{transform:translate(0,0);opacity:.85}100%{transform:translate(-6px,-26px) scale(1.6);opacity:0}}
+.puff{transform-box:fill-box;transform-origin:center}
+.flag{transform-box:fill-box;transform-origin:left center;animation:wave 1.6s ease-in-out infinite}
+@keyframes wave{50%{transform:scaleX(.8) skewY(4deg)}}
+.route{stroke-width:3.5;stroke-dasharray:1 8}
+.route,.badge,.worker{pointer-events:none}
+.mapcard{background:var(--panel)}
+@media (prefers-reduced-motion:reduce){.blink,.puff,.flag,.route{animation:none}.puff{opacity:.6}.isle .lift{transition:none}}
+.admin{margin:14px auto 0;max-width:720px;text-align:left}
+.admin summary{cursor:pointer;color:var(--muted);font-size:12px;text-align:center}
+.adminbox{margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 16px;font-size:13px;color:var(--ink)}
+.adminbox p{margin:6px 0}
+.meta b{color:var(--ink);font-weight:500}
+</style>
+
+<header><div class="wrap">
+  <h1>設備故障小島<small>內部資料</small></h1>
+  <div class="meta"><span id="meta"></span>｜<b id="updated"></b></div>
+</div></header>
+
+<div class="bar"><div class="wrap">
+  <input id="q" type="search" placeholder="搜尋故障現象、原因、對策、設備編號…（空格可多個關鍵字）" aria-label="搜尋">
+  <label class="chk" for="period">期間 <select id="period" aria-label="期間"></select></label>
+  <label class="chk"><input id="norout" type="checkbox" checked> 排除例行保養</label>
+</div></div>
+
+<main><div class="wrap">
+  <section class="mapcard" aria-label="設備島地圖">
+    <div class="chips" id="chips"></div>
+    <svg class="map" id="map" viewBox="0 0 640 560" role="img" aria-label="14 座立體設備小島，島越高代表故障越多"></svg>
+    <div class="legend">
+      <span>島越高、顏色越紅＝故障越多 <span class="sw"><i style="background:var(--g0)"></i><i style="background:var(--g1)"></i><i style="background:var(--g2)"></i><i style="background:var(--g3)"></i><i style="background:var(--g4)"></i></span></span>
+      <span>小機台＝該島前 3 大故障（越高越多）</span>
+      <span>綠旗＝狀況穩定，紅燈冒煙＝需要關注</span>
+      <span>點故障標籤，維修員會沿「共同故障線」巡島</span>
+    </div>
+  </section>
+  <aside class="panel" id="panel" aria-live="polite"></aside>
+</div></main>
+<footer><div class="wrap">資料來源：維修系統匯出之維修紀錄；分類由關鍵字自動判斷，僅供查詢參考。已移除人員姓名。
+  <details class="admin"><summary>資料管理（負責更新的人使用）</summary>
+    <div class="adminbox">
+      <p>1. 從維修系統匯出「維修紀錄」Excel（可只匯出最近幾個月，重疊的舊資料會自動比對，不會重複）。</p>
+      <p><label><input type="checkbox" id="xreplace"> 完整取代（匯入檔是全部歷史資料時才勾選，會移除匯入檔沒有的舊單）</label></p>
+      <p>2. 選擇檔案：<input type="file" id="xfile" accept=".xlsx,.xls"></p>
+      <p id="xstatus" class="hint"></p>
+      <p><button id="xdl" class="more" hidden>3. 下載 data.json</button></p>
+      <p class="hint">4. 到 GitHub 的 repo 上傳 data.json 蓋掉舊檔，約 1 分鐘後大家重新整理就是新資料。</p>
+    </div></details></div></footer>
+
+<script>
+/* ===== data core: classification, loading, updating ===== */
+const RULES = {"eq": [["後射式.*射出", "射出成型機（後射式）"], ["液態矽膠.*射出", "射出成型機（液態矽膠）"], ["無廢料.*射出", "射出成型機（無廢料）"], ["射出成型", "射出成型機（自動）"], ["壓鑄", "壓鑄成型機"], ["TIP", "TIP接著機"], ["CV接著", "CV接著機"], ["接著機", "接著機（其他）"], ["押出機", "押出機"], ["印刷加硫", "T3印刷加硫機"], ["旋轉式", "旋轉式T3加硫機"], ["直立式.*加硫|直立式1米|米直立式", "直立式加硫機"], ["加硫|T3加熱", "加硫機（其他）"], ["EO|滅菌", "EO滅菌鍋"], ["冰水機", "冰水機"], ["模溫機", "模溫機"], ["烤箱", "烤箱"], ["預熱室", "預熱室"], ["封口機", "封口機"], ["打包機", "打包機"], ["包裝機", "包裝機"], ["移印|網印|印刷機", "印刷／移印機"], ["測漏", "測漏機"], ["流量機", "引流測試流量機"], ["黏球", "黏球機"], ["試球|充氣機|吸力測試", "試球／充氣測試機"], ["組裝機", "組裝機"], ["沖床|沖壓|壓床|沖氣孔", "沖壓設備"], ["裁切", "裁切機"], ["貼標", "貼標機"], ["充填", "凝膠充填機"], ["輸送", "輸送設備"], ["點膠", "點膠機"], ["清洗", "清洗機"], ["混料|供料", "混料／供料設備"], ["空壓|壓縮機|乾燥機", "空壓／乾燥設備"], ["拉力|測試機", "測試設備（其他）"]], "sy": [["環氧乙烷|濾心|濾芯|效期|定期保養|例行|保養|清推桿|清水路|洗螺桿|洗機台|拆洗|洗料|清潔|清理|換料|檢修|工傷事件檢測", "例行保養／清潔／更換（非故障）"], ["燈管|燈罩|電燈", "燈管異常"], ["漏油|油箱|液壓油|油槽", "漏油／油路"], ["漏水", "漏水"], ["漏氣|洩氣|洩漏|氣壓|沒氣|無氣|充氣", "漏氣／氣壓異常"], ["漏料", "漏料"], ["黑料|黑點|雜質|異物|粉塵", "出黑料／雜質"], ["溢料|毛邊", "溢料／毛邊"], ["鐵氟龍|鐵弗龍", "鐵氟龍破損／脫落"], ["火花|冒煙|短路|漏電|電線|功率|跳電|斷電", "電氣異常（短路／斷線／冒煙）"], ["馬達|電機", "馬達異常"], ["溫度|温度|水溫|升溫|降溫|過熱|感溫|熱電偶|溫控|濕度線", "溫度異常"], ["加熱|發熱", "加熱元件異常"], ["料不熟|流紋|氣泡|死料|跑料|AB劑|重量不足|料不足|缺料|龜裂", "成型品質異常（料不熟／氣泡等）"], ["封口|皺摺|皺褶|皺折|摺痕", "封口不良"], ["印刷|打印|字體", "印刷不良"], ["出料|吐料|出膠|射出|打料|無法打", "出料異常"], ["補料|入料|供料|進料|儲料|給料|抽料|料桶", "補料／入料異常"], ["合模|開模|模具|頂出|脫模|下模|入模|進出模|出模|上模|模板|吊模", "合模／模具異常"], ["裁切|切刀|刀片|切不斷|切口", "裁切異常"], ["夾具|夾子|夾色套|夾塞子|下塞|定位|組裝", "夾取／定位／組裝異常"], ["推料缸|旋轉缸|旋缸|迫擊缸|氣缸|推桿|電磁閥", "氣缸／推桿／電磁閥異常"], ["螺絲|滑牙|脫牙|鬆脫|頂真|斷裂|斷掉|彈簧|破裂|破損|裂開|膠條", "零件鬆脫／斷裂／破損"], ["異音|聲音|噪音|異響|聲響|異聲|碰撞聲", "異音"], ["震動|晃動|抖動|振動", "震動／晃動"], ["跳機|無法啟動|不能啟動|當機|無法開機|開機異常|啟動開關", "跳機／無法啟動"], ["無法動作|無法作動|無動作|無反應|無法運作|無法轉動|作動異常|動作異常|轉動不會停|無法下降|無法上升|速度|無法正常運作|運轉異常", "動作異常／無法作動"], ["感應|sensor|Sensor|光電|偵測|電眼|雷射|計數器", "感應器／量測異常"], ["人機|PLC|觸控|螢幕|程式|面板", "人機／PLC異常"], ["開關", "開關異常"], ["真空|負壓", "真空異常"], ["皮帶|鍊條|鏈條|輸送|齒輪|培林|軸承|滾輪", "傳動／輸送異常"], ["油壓", "油壓異常"], ["冷卻|冰水|冷媒|循環水|出水|水路|排水|水管|流量", "冷卻／水路異常"], ["故障|異常|壞", "其他故障（未分類）"]]};
+const ISLE_SPEC = [{"name": "冷卻島", "cats": ["冰水機", "模溫機"], "col": 0, "row": 0, "rowLen": 3}, {"name": "EO滅菌島", "cats": ["EO滅菌鍋", "培養鍋"], "col": 1, "row": 0, "rowLen": 3}, {"name": "烘烤島", "cats": ["烤箱", "預熱室"], "col": 2, "row": 0, "rowLen": 3}, {"name": "檢測島", "cats": ["測漏機", "引流測試流量機", "試球／充氣測試機", "測試設備（其他）", "封閉式刮痰管測試設備", "氣體測試治具", "精密流量顯示器", "k顯微影像觀察系統"], "col": 0, "row": 1, "rowLen": 4}, {"name": "T3加硫島", "cats": ["旋轉式T3加硫機", "T3印刷加硫機", "直立式加硫機", "加硫機（其他）", "T"], "col": 1, "row": 1, "rowLen": 4}, {"name": "押出島", "cats": ["押出機", "1-4送料機", "3-2送料機", "送料機", "XY雙軸雷射外徑控制器", "XY雙軸雷射外徑測定器", "雷射外徑控制面版", "雷射外徑測定器"], "col": 2, "row": 1, "rowLen": 4}, {"name": "印刷島", "cats": ["印刷／移印機", "燙金機"], "col": 3, "row": 1, "rowLen": 4}, {"name": "充填混料島", "cats": ["凝膠充填機", "混料／供料設備", "點膠機", "抽料機", "攪拌機"], "col": 0, "row": 2, "rowLen": 4}, {"name": "射出成型島", "cats": ["射出成型機（後射式）", "射出成型機（液態矽膠）", "射出成型機（無廢料）", "射出成型機（自動）", "壓鑄成型機"], "col": 1, "row": 2, "rowLen": 4}, {"name": "接著島", "cats": ["TIP接著機", "CV接著機", "接著機（其他）", "超音波塑膠熔接機"], "col": 2, "row": 2, "rowLen": 4}, {"name": "包裝島", "cats": ["包裝機", "封口機", "打包機", "側面驅動式封箱機", "貼標機"], "col": 3, "row": 2, "rowLen": 4}, {"name": "沖壓裁切島", "cats": ["沖壓設備", "裁切機", "磨R角機", "迷你型桌上型鑽床", "迷你桌上型鑽床", "附吸塵砂布環帶研磨機", "電動研磨機(控制器+手機", "噴砂機", "手壓台"], "col": 0, "row": 3, "rowLen": 3}, {"name": "組裝塗佈島", "cats": ["組裝機", "黏球機", "淋球機", "旋轉噴塗機", "旋轉噴塗機(一體淋球用", "電動雙座旋轉噴塗機", "淋膠機", "自動塗佈機", "離型機"], "col": 1, "row": 3, "rowLen": 3}, {"name": "廠務其他島", "cats": ["輸送設備", "清洗機"], "col": 2, "row": 3, "rowLen": 3}];
+const EQR = RULES.eq.map(([p, l]) => [new RegExp(p), l]);
+const SYR = RULES.sy.map(([p, l]) => [new RegExp(p), l]);
+const SY_OTHER = "其他", SY_GEN = "其他故障（未分類）", SY_ROUT = "例行保養／清潔／更換（非故障）";
+const norm = s => String(s ?? "").replace(/\s+/g, " ").trim();
+function eqCat(name) {
+  let n = name.replace(/^[A-Z]-\d{3}-\d{3}-\d+/, "");
+  for (const [p, c] of EQR) if (p.test(n)) return c;
+  n = n.replace(/[\d\-\s()（）]+$/, "").replace(/^[\s-]+|[\s-]+$/g, "");
+  return n || "其他";
+}
+function syCat(t) { for (const [p, c] of SYR) if (p.test(t)) return c; return SY_OTHER; }
+function syFull(sym, cause, act) {
+  const c = syCat(sym);
+  if (c === SY_OTHER || c === SY_GEN) { const c2 = syCat(cause + " " + act); if (c2 !== SY_OTHER && c2 !== SY_GEN && c2 !== SY_ROUT) return c2; }
+  return c;
+}
+/* raw row: [序號, 順位, 提出日期, 設備編號, 設備名稱, 需求原因, 維修判定, 對策, 工時] */
+function buildD(raw) {
+  const rows = raw.rows.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const names = {}, catSet = new Set(), sySet = new Set(), tmp = [];
+  let seen = new Set();
+  for (const r of rows) {
+    if (r[3]) names[r[3]] = r[4];
+    const cat = eqCat(r[4]), sy = syFull(r[5], r[6], r[7]);
+    catSet.add(cat); sySet.add(sy);
+    tmp.push([r, cat, sy, seen.has(r[0]) ? 0 : 1]); seen.add(r[0]);
+  }
+  const cats = [...catSet].sort(), sys = [...sySet].sort();
+  const ci = new Map(cats.map((c, i) => [c, i])), si = new Map(sys.map((s, i) => [s, i]));
+  const out = tmp.map(([r, cat, sy, first]) => [r[0], r[2], r[3], ci.get(cat), r[5], si.get(sy), r[6], r[7], r[8], first]);
+  const dates = rows.map(r => r[2]).filter(Boolean).sort();
+  return {cats, sys, names, rows: out, start: dates[0], cutoff: dates[dates.length - 1]};
+}
+function makeIsles(D) {
+  const idx = new Map(D.cats.map((c, i) => [c, i])), used = new Set();
+  const isles = ISLE_SPEC.map(s => { const cats = s.cats.map(c => idx.get(c)).filter(v => v != null); cats.forEach(c => used.add(c)); return {...s, cats}; });
+  D.cats.forEach((c, i) => { if (!used.has(i)) isles[isles.length - 1].cats.push(i); });
+  return isles;
+}
+
+function boot(D) {
+const ISLES = makeIsles(D);
+const ROUTINE = D.sys.indexOf("例行保養／清潔／更換（非故障）");
+const cutoff = new Date(D.cutoff), f = new Date(cutoff); f.setMonth(f.getMonth() - 24);
+const F24 = f.toISOString().slice(0, 10);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const VAGUE = new Set(["調整","固定","修復","處理","更換","ok","OK","正常","已修","修理","排除","檢查","測試","維修","完成"]);
+const isVague = s => VAGUE.has(s.trim()) || s.trim().length <= 2;
+const catIsle = new Map(); ISLES.forEach((is, k) => is.cats.forEach(c => catIsle.set(c, k)));
+const shortSy = s => s.replace(/（.*）/, "");
+const YEARS = [...new Set(D.rows.map(r => r[1].slice(0, 4)))].sort();
+$("period").innerHTML = `<option value="r24">近 24 個月</option><option value="all">全部期間</option>` +
+  YEARS.slice().reverse().map(y => `<option value="${y}">${y} 年${y === D.cutoff.slice(0,4) ? "（至 " + D.cutoff.slice(5) + "）" : ""}</option>`).join("");
+const inPeriod = (r, p) => p === "all" ? true : p === "r24" ? r[1] >= F24 : r[1].startsWith(p);
+const periodLabel = () => $("period").selectedOptions[0].textContent;
+
+$("meta").textContent = `${D.start} ～ ${D.cutoff}｜${new Set(D.rows.map(r=>r[0])).size.toLocaleString()} 張維修單｜${new Set(D.rows.map(r=>r[2]).filter(Boolean)).size} 台設備`;
+
+let selIsle = null, selSy = null, caseLimit = 30, grpLimit = 8;
+
+function filtered() {
+  const q = $("q").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const per = $("period").value, norout = $("norout").checked;
+  return D.rows.filter(r => {
+    if (!inPeriod(r, per)) return false;
+    if (norout && r[5] === ROUTINE) return false;
+    if (q.length) {
+      const hay = (r[0]+" "+r[2]+" "+(D.names[r[2]]||"")+" "+r[4]+" "+r[6]+" "+r[7]+" "+D.cats[r[3]]+" "+D.sys[r[5]]).toLowerCase();
+      return q.every(t => hay.includes(t));
+    }
+    return true;
+  });
+}
+function filteredNoPeriod() { const el = $("period"), v = el.value; el.value = "all"; const r = filtered(); el.value = v; return r; }
+const tickets = rows => rows.filter(r => r[9]);
+function countBy(rows, key) { const m = new Map(); for (const r of rows) { const k = key(r); m.set(k, (m.get(k)||0) + 1); } return [...m].sort((a,b) => b[1]-a[1]); }
+
+/* ---------- map ---------- */
+const R = 78, W = Math.sqrt(3) * R, PAD = 30;
+function centre(is) { const off = is.rowLen === 3 ? W/2 : 0; return [PAD + W/2 + is.col*W + off, PAD + R + is.row*1.5*R]; }
+function hexPts(cx, cy, s) { const p = []; for (let i = 0; i < 6; i++) { const a = Math.PI/180*(60*i - 30); p.push([cx + s*R*Math.cos(a), cy + s*R*Math.sin(a)]); } return p; }
+function lum(hex) { const v = getComputedStyle(document.documentElement).getPropertyValue(hex).trim(); const m = v.match(/^#?(..)(..)(..)$/); if (!m) return 1; const [r,g,b] = m.slice(1).map(x=>parseInt(x,16)/255); return .2126*r+.7152*g+.0722*b; }
+
+function drawMap(rows) {
+  const t = tickets(rows);
+  const per = ISLES.map(() => ({n:0, sy:new Map()}));
+  for (const r of t) { const k = catIsle.get(r[3]); if (k == null) continue; per[k].n++; per[k].sy.set(r[5], (per[k].sy.get(r[5])||0)+1); }
+  const max = Math.max(1, ...per.map(p => p.n));
+  const lv = n => n === 0 ? 0 : Math.min(4, Math.floor(Math.sqrt(n / max) * 4.999));
+  const SQ = 0.62, TOP = 78, S = 0.8, K = 1.27;
+  const ground = is => { const [x, y] = centre(is); return [20 + x * K, TOP + y * K * SQ]; };
+  const hgt = n => 12 + 46 * Math.sqrt(n / max);
+  const hex = (cx, cy, s) => hexPts(0, 0, s).map(([x, y]) => [cx + x * K, cy + y * SQ * K]);
+  const P = a => a.map(q => q[0].toFixed(1) + "," + q[1].toFixed(1)).join(" ");
+  const VW = Math.ceil(40 + (2 * PAD + 4 * W) * K), VH = Math.ceil(TOP + (PAD + R + 3 * 1.5 * R) * K * SQ + R * K * SQ + 36);
+  $("map").setAttribute("viewBox", `0 0 ${VW} ${VH}`);
+  let s = `<defs>
+    <pattern id="wave" width="46" height="18" patternUnits="userSpaceOnUse"><path d="M2 12 q6 -6 12 0 t12 0" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round"/></pattern>
+    <radialGradient id="glow" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="var(--sea-hi)"/><stop offset="1" stop-color="var(--sea)"/></radialGradient></defs>
+    <rect width="${VW}" height="${VH}" rx="18" fill="url(#glow)"/><rect width="${VW}" height="${VH}" rx="18" fill="url(#wave)" opacity=".7"/>`;
+  const order = ISLES.map((is, k) => k).sort((a, b) => ground(ISLES[a])[1] - ground(ISLES[b])[1]);
+  const tops = [];
+  for (const k of order) {
+    const is = ISLES[k], p = per[k], L = lv(p.n), [gx, gy] = ground(is), h = hgt(p.n), ty = gy - h;
+    tops[k] = [gx, ty];
+    const dim = (selSy != null && !(p.sy.get(selSy) > 0)) || p.n === 0;
+    const beach = hex(gx, gy + 4, S + 0.08), topF = hex(gx, ty, S), base = hex(gx, gy, S);
+    // visible side faces: vertices 0(-30°) 1(30°) 2(90°) 3(150°)
+    const face = (i, j) => P([topF[i], topF[j], base[j], base[i]]);
+    const top3 = [...p.sy].sort((a,b) => b[1]-a[1]).slice(0, 3), tmax = top3.length ? top3[0][1] : 1;
+    let deco = "";
+    top3.forEach(([sy, n], i) => {          // little iso machines
+      const bx = gx - 26 + i * 22, by = ty + 18 - i * 3, bh = 6 + 18 * n / tmax, w = 8, d = 5;
+      deco += `<g class="mch"><title>${esc(D.sys[sy])}：${n}</title>
+        <polygon points="${P([[bx-w,by],[bx,by+d],[bx,by+d-bh],[bx-w,by-bh]])}" fill="var(--wall-l)"/>
+        <polygon points="${P([[bx,by+d],[bx+w,by],[bx+w,by-bh],[bx,by+d-bh]])}" fill="var(--wall-r)"/>
+        <polygon points="${P([[bx-w,by-bh],[bx,by+d-bh],[bx+w,by-bh],[bx,by-d-bh]])}" fill="var(--m${i})"/>
+        <rect x="${bx+2}" y="${(by-bh*0.55).toFixed(1)}" width="3.5" height="3" rx="1" fill="var(--win)"/></g>`;
+    });
+    if (L >= 3 && p.n > 0) {                 // warning light + smoke
+      const lx = gx + 34, ly = ty + 2;
+      deco += `<rect x="${lx-1.5}" y="${ly-14}" width="3" height="14" fill="var(--wall-r)"/><circle class="blink" cx="${lx}" cy="${ly-17}" r="5" fill="var(--alarm)"/>`;
+      if (L === 4) deco += [0, 1, 2].map(i => `<circle class="puff" style="animation-delay:${i * 0.9}s" cx="${gx - 30}" cy="${ty - 10}" r="${5 + i}" fill="var(--smoke)"/>`).join("");
+    } else if (p.n > 0) {                    // green flag
+      const fx = gx + 32, fy = ty + 4;
+      deco += `<line x1="${fx}" y1="${fy}" x2="${fx}" y2="${fy-22}" stroke="var(--wall-r)" stroke-width="2" stroke-linecap="round"/><path class="flag" d="M${fx} ${fy-22} l14 4 l-14 5z" fill="var(--flag)"/>`;
+    } else {
+      deco += `<circle cx="${gx+26}" cy="${ty+6}" r="7" fill="var(--tree)"/><circle cx="${gx+34}" cy="${ty+10}" r="5" fill="var(--tree)"/>`;
+    }
+    s += `<g class="isle${selIsle === k ? " sel" : ""}${dim ? " dim" : ""}" data-k="${k}" tabindex="0" role="button" aria-label="${esc(is.name)}，${p.n} 次故障">
+      <title>${esc(is.name)}｜${p.n} 次${top3.length ? "｜" + top3.map(([sy,n]) => D.sys[sy] + " " + n).join("、") : ""}</title>
+      <polygon points="${P(beach)}" fill="var(--sand)"/>
+      <g class="lift">
+      <polygon class="side" points="${face(1,2)}" fill="var(--soil-r)"/>
+      <polygon class="side" points="${face(2,3)}" fill="var(--soil-l)"/>
+      <polygon class="side" points="${face(0,1)}" fill="var(--soil-r)"/>
+      <polygon class="shape" points="${P(topF)}" fill="var(--g${L})"/>
+      <polygon points="${P(hex(gx, ty, S - 0.12))}" fill="none" stroke="var(--grass-edge)" stroke-width="1.5" stroke-dasharray="1 5" stroke-linecap="round" opacity=".6"/>
+      ${deco}
+      <g class="sign"><rect x="${gx-54}" y="${ty-46}" width="108" height="27" rx="13.5" fill="var(--sign)"/>
+        <text x="${gx}" y="${ty-27}" text-anchor="middle" class="nm">${esc(is.name)}</text></g>
+      <g class="cnt"><rect x="${gx-26}" y="${ty-15}" width="52" height="24" rx="12" fill="var(--pill)"/>
+        <text x="${gx}" y="${ty+3}" text-anchor="middle" class="ct">${p.n}</text></g>
+      </g></g>`;
+  }
+  // common fault line + walking mechanic
+  if (selSy != null) {
+    const nodes = per.map((p, k) => [k, p.sy.get(selSy) || 0]).filter(x => x[1] > 0);
+    let route = "", badges = "";
+    if (nodes.length > 1) {
+      const pts = nodes.map(([k]) => tops[k]), inT = [0], adj = pts.map(() => []);
+      while (inT.length < pts.length) {
+        let best = null;
+        for (const a of inT) for (let b = 0; b < pts.length; b++) if (!inT.includes(b)) {
+          const d = Math.hypot(pts[a][0]-pts[b][0], pts[a][1]-pts[b][1]); if (!best || d < best[2]) best = [a, b, d]; }
+        inT.push(best[1]); adj[best[0]].push(best[1]); adj[best[1]].push(best[0]);
+      }
+      const walk = []; (function dfs(u, par) { walk.push(u); for (const v of adj[u]) if (v !== par) { dfs(v, u); walk.push(u); } })(0, -1);
+      const arc = (a, b) => { const mx = (a[0]+b[0])/2, my = (a[1]+b[1])/2 - 26; return `Q${mx.toFixed(1)} ${my.toFixed(1)} ${b[0].toFixed(1)} ${b[1].toFixed(1)}`; };
+      let d = `M${pts[walk[0]][0].toFixed(1)} ${pts[walk[0]][1].toFixed(1)}`;
+      for (let i = 1; i < walk.length; i++) d += " " + arc(pts[walk[i-1]], pts[walk[i]]);
+      const seen = new Set(); let lines = "";
+      for (let i = 1; i < walk.length; i++) { const key = [walk[i-1], walk[i]].sort().join("-"); if (seen.has(key)) continue; seen.add(key);
+        lines += `<path class="route" d="M${pts[walk[i-1]][0].toFixed(1)} ${pts[walk[i-1]][1].toFixed(1)} ${arc(pts[walk[i-1]], pts[walk[i]])}"/>`; }
+      const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const dur = Math.max(6, walk.length * 1.6);
+      const worker = `<g class="worker"><ellipse cx="0" cy="2" rx="7" ry="2.5" fill="var(--shadow)"/>
+        <rect x="-5" y="-14" width="10" height="13" rx="4" fill="var(--suit)"/>
+        <circle cx="0" cy="-19" r="6" fill="var(--skin)"/><path d="M-7 -20 a7 7 0 0 1 14 0 z" fill="var(--hat)"/>
+        <circle cx="-2" cy="-18" r=".9" fill="var(--ink)"/><circle cx="2" cy="-18" r=".9" fill="var(--ink)"/>
+        <path d="M5 -10 l6 -5 m-1.5 -1.5 l3 3" stroke="var(--wrench)" stroke-width="2" stroke-linecap="round"/></g>`;
+      route = lines + (reduce ? `<g transform="translate(${pts[0][0]},${pts[0][1]})">${worker}</g>`
+        : `<g>${worker}<animateMotion dur="${dur}s" repeatCount="indefinite" path="${d}"/></g>`);
+    }
+    badges = nodes.map(([k, n]) => { const [x, y] = tops[k]; const w = 12 + String(n).length * 8;
+      return `<g class="badge"><rect x="${x + 34}" y="${y - 54}" width="${w + 4}" height="21" rx="10.5"/><text x="${x + 36 + w/2}" y="${y - 38.5}" text-anchor="middle">${n}</text></g>`; }).join("");
+    s += route + badges;
+  }
+  $("map").innerHTML = s;
+}
+
+function drawChips(rows) {
+  const top = countBy(tickets(rows).filter(r => r[5] !== D.sys.indexOf("其他") && r[5] !== D.sys.indexOf("其他故障（未分類）")), r => r[5]).slice(0, 12);
+  $("chips").innerHTML = `<span class="lab">共同故障線</span>` + top.map(([sy, n]) =>
+    `<button class="chip" data-sy="${sy}" aria-pressed="${selSy === sy}">${esc(shortSy(D.sys[sy]))}<span class="c">${n}</span></button>`).join("");
+}
+
+/* ---------- panel ---------- */
+function bars(list, max, attr) {
+  return `<div class="rows">${list.map(([lab, v, key]) => `<div class="r"><button data-${attr}="${esc(key)}">${esc(lab)}</button>
+    <span class="track"><span class="fill" style="width:${(v/max*100).toFixed(1)}%"></span></span><span class="v">${v}</span></div>`).join("")}</div>`;
+}
+function groupsHTML(rows) {
+  const g = new Map();
+  for (const r of rows) {
+    const k = r[3] + "|" + r[5];
+    if (!g.has(k)) g.set(k, {cat:r[3], sy:r[5], n:0, pairs:new Map(), desc:new Map()});
+    const o = g.get(k); if (r[9]) o.n++;
+    const pk = (r[6]||"（未填）") + "\u0000" + (r[7]||"（未填）"); o.pairs.set(pk, (o.pairs.get(pk)||0)+1);
+    o.desc.set(r[4], (o.desc.get(r[4])||0)+1);
+  }
+  const list = [...g.values()].sort((a,b) => b.n - a.n);
+  return list.slice(0, grpLimit).map(o => {
+    const pairs = [...o.pairs].sort((a,b)=>b[1]-a[1]).slice(0,4);
+    return `<div class="grp"><h4><span>${esc(D.cats[o.cat])}／${esc(D.sys[o.sy])}</span><span>${o.n} 次</span></h4>
+      <div class="desc">常見描述：${[...o.desc].sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>esc(x[0])).join("、")}</div>
+      <ol>${pairs.map(([k,n]) => { const [c,a] = k.split("\u0000"); return `<li>${esc(c)}<span class="k">${n} 次</span><span class="a">${esc(a)}${isVague(a) ? ' <span class="vague">（簡略，待補充）</span>' : ""}</span></li>`; }).join("")}</ol></div>`;
+  }).join("") + (list.length > grpLimit ? `<button class="more" id="moregrp">再顯示 8 組（共 ${list.length} 組）</button>` : "");
+}
+function casesHTML(rows) {
+  const s = rows.slice().sort((a,b) => b[1].localeCompare(a[1]) || b[0]-a[0]);
+  return `<div class="tblwrap"><table><thead><tr><th>序號</th><th>日期</th><th>設備</th><th>故障現象</th><th>維修判定</th><th>對策</th><th>工時</th></tr></thead><tbody>${
+    s.slice(0, caseLimit).map(r => `<tr><td class="num">${r[0]}</td><td class="num">${r[1]}</td><td>${esc(D.names[r[2]]||r[2])}</td><td>${esc(r[4])}</td><td>${esc(r[6])}</td><td>${esc(r[7])}</td><td class="num">${r[8] ?? "-"}</td></tr>`).join("")
+  }</tbody></table></div>` + (s.length > caseLimit ? `<button class="more" id="morecase">再顯示 30 筆（共 ${s.length} 筆）</button>` : "");
+}
+function yearChart() {
+  const p = $("period").value, all = filteredNoPeriod();
+  let s = selIsle == null ? all : all.filter(r => catIsle.get(r[3]) === selIsle);
+  if (selSy != null) s = s.filter(r => r[5] === selSy);
+  const m = new Map(YEARS.map(y => [y, 0])); for (const r of tickets(s)) m.set(r[1].slice(0,4), m.get(r[1].slice(0,4)) + 1);
+  const max = Math.max(1, ...m.values());
+  return `<h3>逐年故障次數（點年份切換）</h3><div class="yrs">${[...m].map(([y, n]) =>
+    `<button class="yr${p === y ? " on" : ""}" data-yr="${y}" aria-label="${y} 年 ${n} 次"><span class="n">${n}</span><i style="height:${(n/max*60).toFixed(1)}px"></i><span class="y">${y.slice(2)}</span></button>`).join("")}</div>`;
+}
+function drawPanel(rows) {
+  const scope = selIsle == null ? rows : rows.filter(r => catIsle.get(r[3]) === selIsle);
+  const scoped = selSy == null ? scope : scope.filter(r => r[5] === selSy);
+  const t = tickets(scoped), period = periodLabel();
+  const hrs = scoped.reduce((s,r) => s + (r[8]||0), 0);
+  const syList = countBy(tickets(scope), r => r[5]).slice(0, 10).map(([k,v]) => [D.sys[k], v, k]);
+  const eqList = countBy(t.filter(r => r[2]), r => r[2]).slice(0, 8).map(([k,v]) => [D.names[k]||k, v, k]);
+  let h = "";
+  if (selIsle == null) {
+    h += `<h2>全廠總覽</h2><p class="cats">${period}${selSy != null ? `｜只看故障：<b>${esc(D.sys[selSy])}</b>　<button class="back" id="clrsy">取消</button>` : ""}${$("q").value.trim() ? "｜搜尋：" + esc($("q").value.trim()) : ""}</p>
+      <p class="hint">點地圖上的島，看該類設備的故障排行、常見判定與對策，以及案例。</p>`;
+  } else {
+    const is = ISLES[selIsle];
+    h += `<button class="back" id="back">← 回全廠總覽</button><h2>${esc(is.name)}</h2>
+      <p class="cats">${is.cats.map(c => esc(D.cats[c])).join("、")}</p>
+      <p class="cats">${period}${selSy != null ? `｜只看故障：<b>${esc(D.sys[selSy])}</b>　<button class="back" id="clrsy">取消</button>` : ""}</p>`;
+  }
+  h += `<div class="kpis"><span><b>${t.length}</b>次故障</span><span><b>${hrs.toFixed(0)}</b>維修工時 (h)</span><span><b>${new Set(t.map(r=>r[2]).filter(Boolean)).size}</b>台設備</span></div>`;
+  h += yearChart();
+  if (!scoped.length) { $("panel").innerHTML = h + `<p class="empty">沒有符合的紀錄。試試較短的關鍵字，或把期間改成「全部期間」。</p>`; return bind(); }
+  if (selSy == null && syList.length) h += `<h3>故障排行（點名稱畫共同故障線）</h3>${bars(syList, syList[0][1], "sy")}`;
+  if (eqList.length) h += `<h3>故障最多的設備</h3>${bars(eqList, eqList[0][1], "eq")}`;
+  h += `<h3>常見判定與對策</h3>${groupsHTML(scoped)}`;
+  h += `<h3>案例（新到舊）</h3>${casesHTML(scoped)}`;
+  $("panel").innerHTML = h; bind();
+}
+function bind() {
+  const b = $("back"); if (b) b.onclick = () => { selIsle = null; reset(); render(); };
+  const cs = $("clrsy"); if (cs) cs.onclick = () => { selSy = null; reset(); render(); };
+  const g = $("moregrp"); if (g) g.onclick = () => { grpLimit += 8; render(); };
+  const c = $("morecase"); if (c) c.onclick = () => { caseLimit += 30; render(); };
+}
+function reset() { caseLimit = 30; grpLimit = 8; }
+function render() { const rows = filtered(); drawChips(rows); drawMap(rows); drawPanel(rows); }
+
+$("map").addEventListener("click", e => { const g = e.target.closest(".isle"); if (!g) return; const k = +g.dataset.k; selIsle = selIsle === k ? null : k; reset(); render(); });
+$("map").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.closest(".isle")) { e.preventDefault(); e.target.closest(".isle").dispatchEvent(new MouseEvent("click", {bubbles:true})); } });
+$("chips").addEventListener("click", e => { const b = e.target.closest(".chip"); if (!b) return; const s = +b.dataset.sy; selSy = selSy === s ? null : s; reset(); render(); });
+$("panel").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.sy !== undefined) { const s = +b.dataset.sy; selSy = selSy === s ? null : s; reset(); render(); }
+  else if (b.dataset.eq !== undefined) { $("q").value = b.dataset.eq; reset(); render(); }
+  else if (b.dataset.yr !== undefined) { const el = $("period"); el.value = el.value === b.dataset.yr ? "r24" : b.dataset.yr; reset(); render(); }
+});
+["q","period","norout"].forEach(id => $(id).addEventListener("input", () => { reset(); if (selSy != null && !filtered().some(r => r[5] === selSy)) selSy = null; render(); }));
+window.__render = render;
+render();
+}
+/* ===== loader ===== */
+let RAW = null;
+window.__render = () => {};
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => window.__render());
+new MutationObserver(() => window.__render()).observe(document.documentElement, {attributes: true, attributeFilter: ["data-theme"]});
+
+function freshControls() {             // drop old listeners before re-booting with new data
+  ["q", "period", "norout", "map", "chips", "panel"].forEach(id => { const e = document.getElementById(id); const c = e.cloneNode(false); e.replaceWith(c); });
+}
+function startWith(raw, isReboot) {
+  RAW = raw;
+  if (isReboot) freshControls();
+  boot(buildD(raw));
+  document.getElementById("updated").textContent = `資料更新至 ${raw.updated || buildD(raw).cutoff}`;
+}
+async function start() {
+  try {
+    const res = await fetch("data.json", {cache: "no-store"});
+    if (!res.ok) throw new Error(res.status);
+    startWith(await res.json(), false);
+  } catch (e) {
+    document.getElementById("panel").innerHTML = `<h2>讀不到資料</h2><p class="hint">找不到 data.json。請用網址開啟本頁；若是開電腦裡的檔案，可以手動選擇 data.json：</p>
+      <input type="file" id="localjson" accept=".json,application/json">`;
+    document.getElementById("localjson").addEventListener("change", async ev => {
+      const f = ev.target.files[0]; if (!f) return;
+      try { startWith(JSON.parse(await f.text()), true); } catch (err) { alert("檔案格式不正確"); }
+    });
+  }
+}
+
+/* ===== updater ===== */
+const NEED = ["序號", "順位", "設備編號", "設備名稱", "需求原因", "提出日期", "維修判定", "對策", "工時"];
+function loadXLSX() {
+  if (window.XLSX) return Promise.resolve();
+  return new Promise((ok, bad) => { const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; s.onload = ok; s.onerror = () => bad(new Error("讀取 Excel 的工具載入失敗，請確認網路連線")); document.head.appendChild(s); });
+}
+function toDate(v) {
+  if (v == null || v === "") return "";
+  if (typeof v === "number") { const d = XLSX.SSF.parse_date_code(v); return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`; }
+  const s = String(v).trim().replace(/\//g, "-"); const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  return m ? `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}` : "";
+}
+async function readExcel(file) {
+  await loadXLSX();
+  const wb = XLSX.read(await file.arrayBuffer(), {type: "array"});
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, {defval: "", raw: true});
+  if (!rows.length) throw new Error("檔案裡沒有資料");
+  const miss = NEED.filter(k => !(k in rows[0]));
+  if (miss.length) throw new Error(`缺少欄位：${miss.join("、")}。請確認是維修系統匯出的「維修紀錄」原始檔。`);
+  return rows.filter(r => r["序號"] !== "").map(r => {
+    const h = parseFloat(r["工時"]);
+    return [Number(r["序號"]), Number(r["順位"]) || 0, toDate(r["提出日期"]), norm(r["設備編號"]), norm(r["設備名稱"]),
+            norm(r["需求原因"]), norm(r["維修判定"]), norm(r["對策"]), isNaN(h) ? null : Math.round(h * 100) / 100];
+  });
+}
+function byId(rows) { const m = new Map(); for (const r of rows) { if (!m.has(r[0])) m.set(r[0], []); m.get(r[0]).push(r); } return m; }
+const sig = list => JSON.stringify(list.slice().sort((a, b) => a[1] - b[1] || String(a[6]).localeCompare(String(b[6]))));
+function merge(oldRows, newRows, replaceAll) {
+  const O = byId(oldRows), N = byId(newRows); let add = 0, upd = 0, same = 0; const changed = [];
+  for (const [id, list] of N) {
+    if (!O.has(id)) add++;
+    else if (sig(O.get(id)) === sig(list)) same++;
+    else { upd++; changed.push(id); }
+  }
+  let removed = 0, rows;
+  if (replaceAll) { removed = [...O.keys()].filter(id => !N.has(id)).length; rows = newRows; }
+  else { const keep = oldRows.filter(r => !N.has(r[0])); rows = keep.concat(newRows); }
+  return {rows, add, upd, same, removed, changed, total: new Set(rows.map(r => r[0])).size, imported: N.size};
+}
+let pending = null;
+document.getElementById("xfile").addEventListener("change", async ev => {
+  const f = ev.target.files[0], st = document.getElementById("xstatus"), dl = document.getElementById("xdl");
+  dl.hidden = true; pending = null; if (!f) return;
+  st.textContent = "讀取中…";
+  try {
+    const incoming = await readExcel(f);
+    const replaceAll = document.getElementById("xreplace").checked;
+    const m = merge(RAW ? RAW.rows : [], incoming, replaceAll);
+    const dates = m.rows.map(r => r[2]).filter(Boolean).sort();
+    pending = {updated: dates[dates.length - 1], rows: m.rows};
+    st.innerHTML = `匯入 <b>${m.imported}</b> 張：新增 <b>${m.add}</b> 張、更新 <b>${m.upd}</b> 張、未變動 <b>${m.same}</b> 張${replaceAll ? `、移除 <b>${m.removed}</b> 張` : ""}｜目前總計 <b>${m.total.toLocaleString()}</b> 張，資料至 ${pending.updated}` +
+      (m.changed.length ? `<br><span class="hint">更新的序號：${m.changed.slice(0, 30).join("、")}${m.changed.length > 30 ? " …" : ""}</span>` : "") +
+      `<br><span class="hint">畫面已換成新資料預覽。確認沒問題後，下載 data.json 上傳到 GitHub 蓋掉舊檔，其他人重新整理就會看到。</span>`;
+    startWith(pending, true);
+    dl.hidden = false;
+  } catch (err) { st.textContent = "更新失敗：" + err.message; }
+});
+document.getElementById("xdl").addEventListener("click", () => {
+  if (!pending) return;
+  const blob = new Blob([JSON.stringify(pending)], {type: "application/json"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "data.json"; document.body.appendChild(a); a.click(); a.remove();
+});
+start();
+
+</script>
+
+</body></html>
