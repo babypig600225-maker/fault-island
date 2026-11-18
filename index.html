@@ -99,6 +99,8 @@ th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertic
 th{background:var(--chip);font-weight:500;white-space:nowrap}
 td.num{font-family:var(--mono);white-space:nowrap;font-variant-numeric:tabular-nums}
 .hint{font-size:13px;color:var(--muted);margin:0}
+.loc{font-size:12px;margin-left:4px;color:var(--route);text-decoration:none;white-space:nowrap}.loc:hover{text-decoration:underline}
+.eqf{display:inline-block;margin:4px 0 2px;padding:3px 10px;border-radius:999px;background:var(--bg);border:1px solid var(--line);font-size:13px}
 .back{font-size:13px;background:none;border:0;color:var(--route);cursor:pointer;padding:0;margin-bottom:6px;text-decoration:underline;text-underline-offset:3px}
 .empty{padding:20px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:8px}
 footer{color:var(--muted);font-size:12px;text-align:center;padding-block:0 28px}
@@ -219,6 +221,11 @@ function makeIsles(D) {
   return isles;
 }
 
+const FM_URL = "https://claude.ai/artifact/1jMLBQQxo3fYRuzssT2i68";
+const FM_LOC = {"M-301-001-4": "1-1", "M-301-001-2": "1-2", "M-301-010-1": "2-1", "M-301-025-1": "2-2", "M-301-025-2": "2-3", "M-301-025-3": "2-4", "M-301-012-3": "2-5", "M-301-012-2": "2-6", "M-301-012-1": "2-7", "M-301-025-4": "2-8", "M-301-012-6": "2-9", "M-301-012-5": "2-10", "M-301-012-4": "2-11", "M-301-025-6": "2-12", "M-301-025-7": "2-13", "M-301-025-8": "2-14", "M-301-025-12": "2-15", "M-301-025-11": "2-16", "M-301-025-10": "2-17", "M-301-025-9": "2-18", "M-301-025-5": "2-19", "M-301-025-16": "2-20", "M-301-025-15": "2-21", "M-301-025-14": "2-22", "M-301-025-13": "2-23", "M-301-025-18": "2-24", "M-301-025-17": "2-25", "M-301-011-4": "3-1", "M-301-011-3": "3-2", "M-301-011-2": "3-3", "M-301-011-1": "3-4", "M-301-009-1": "4-1", "M-301-005-3": "5-1", "M-301-005-10": "5-2", "M-301-005-2": "5-3", "M-301-005-13": "5-4", "M-301-005-1": "5-5", "M-301-005-12": "5-6", "M-301-005-6": "5-7", "M-301-005-14": "5-8", "M-301-005-11": "5-9", "M-301-005-16": "5-10", "M-301-005-8": "5-11", "M-301-004-11": "6-1", "M-301-004-10": "6-2", "M-301-004-1": "6-3", "M-301-004-12": "6-4", "M-301-004-7": "6-5", "M-301-004-8": "6-6", "M-301-004-6": "6-7", "M-301-004-13": "6-8", "M-301-004-5": "6-9", "M-301-004-9": "6-10", "M-301-004-2": "6-11", "M-301-006-8": "7-1", "M-301-006-10": "7-2", "M-301-006-4": "7-3", "M-301-006-6": "7-4", "M-301-006-12": "7-5", "M-301-006-7": "7-6", "M-301-006-9": "7-7", "M-301-006-2": "7-8", "M-301-006-11": "7-9", "M-301-006-13": "7-10", "M-301-006-5": "7-11", "M-302-039-6": "8-1", "M-302-039-8": "8-2", "M-302-039-4": "8-3", "M-302-039-3": "8-4", "M-302-039-2": "8-5", "M-302-039-1": "8-6", "M-302-039-14": "8-7", "M-302-039-13": "8-8", "M-302-039-12": "8-9", "M-302-039-5": "8-10", "M-302-039-10": "8-11", "M-302-039-16": "8-12", "M-302-039-9": "8-13", "M-301-018-5": "9-1", "M-301-018-4": "9-2", "M-301-018-3": "9-3", "M-301-018-2": "9-4", "M-301-018-1": "9-5", "M-303-018-1": "10-1", "M-303-018-2": "10-2", "M-303-001-2": "11-1", "M-303-001-6": "11-2", "M-303-001-5": "11-3", "M-303-001-1": "11-4", "M-303-001-7": "11-5", "M-303-001-3": "11-6", "M-303-020-1": "12-1", "M-303-020-2": "12-2", "M-303-013-1": "13-1", "M-303-013-2": "13-2", "M-302-014-1": "14-1", "M-302-044-4": "15-1", "M-302-044-3": "15-2", "M-302-044-2": "15-3", "M-302-044-1": "15-4", "M-303-007-14": "16-1", "M-303-007-13": "16-2", "M-303-007-10": "16-3", "M-303-007-16": "16-4", "M-303-007-12": "16-5", "M-303-007-17": "16-6", "M-302-012-2": "17-1", "M-302-010-6": "18-1", "M-302-010-8": "18-2", "M-302-010-3": "18-3", "M-302-010-1": "18-4", "M-302-010-2": "18-5", "M-302-010-10": "18-6", "M-302-010-7": "18-7", "M-302-010-9": "18-8", "M-302-027-1": "19-1", "M-302-027-2": "19-2", "M-302-026-1": "19-3", "M-302-027-3": "19-4", "M-302-028-2": "20-1", "M-302-028-1": "20-2", "M-303-010-3": "21-1", "M-303-010-2": "22-1", "M-302-047-1": "23-1", "M-302-029-1": "24-1", "M-302-029-3": "24-2", "M-302-029-4": "24-3", "M-302-031-1": "25-1", "M-302-053-1": "26-1", "M-301-031-2": "27-1", "M-301-033-1": "28-1", "M-301-033-2": "29-1", "M-301-001-5": "30-1", "M-301-028-2": "31-1", "M-301-028-1": "31-2", "M-301-028-3": "31-3", "M-302-018-2": "32-1", "M-302-018-1": "32-2", "M-302-018-3": "32-3", "M-301-034-1": "33-1", "M-302-008-1": "34-1", "M-302-042-2": "34-2"};
+const fmLoc = id => { if (!id) return null; if (FM_LOC[id]) return id; const p = id.replace(/-\d+$/, ""); return FM_LOC[p] ? p : null; };
+const locLink = id => { const k = fmLoc(id); return k ? `<a class="loc" href="${FM_URL}#${k}" target="_blank" rel="noopener" title="在樓層設備位置圖查看（圖號 ${FM_LOC[k]}）">📍位置</a>` : ""; };
+let EQF = null;
 function boot(D) {
 const ISLES = makeIsles(D);
 const ROUTINE = D.sys.indexOf("例行保養／清潔／更換（非故障）");
@@ -246,6 +253,7 @@ function filtered() {
   return D.rows.filter(r => {
     if (!inPeriod(r, per)) return false;
     if (norout && r[5] === ROUTINE) return false;
+    if (EQF && !(r[2] === EQF || (r[2] || "").startsWith(EQF + "-"))) return false;
     if (q.length) {
       const hay = (r[0]+" "+r[2]+" "+(D.names[r[2]]||"")+" "+r[4]+" "+r[6]+" "+r[7]+" "+D.cats[r[3]]+" "+D.sys[r[5]]).toLowerCase();
       return q.every(t => hay.includes(t));
@@ -392,7 +400,7 @@ function groupsHTML(rows) {
 function casesHTML(rows) {
   const s = rows.slice().sort((a,b) => b[1].localeCompare(a[1]) || b[0]-a[0]);
   return `<div class="tblwrap"><table><thead><tr><th>序號</th><th>日期</th><th>設備</th><th>故障現象</th><th>維修判定</th><th>對策</th><th>工時</th></tr></thead><tbody>${
-    s.slice(0, caseLimit).map(r => `<tr><td class="num">${r[0]}</td><td class="num">${r[1]}</td><td>${esc(D.names[r[2]]||r[2])}</td><td>${esc(r[4])}</td><td>${esc(r[6])}</td><td>${esc(r[7])}</td><td class="num">${r[8] ?? "-"}</td></tr>`).join("")
+    s.slice(0, caseLimit).map(r => `<tr><td class="num">${r[0]}</td><td class="num">${r[1]}</td><td>${esc(D.names[r[2]]||r[2])}${locLink(r[2])}</td><td>${esc(r[4])}</td><td>${esc(r[6])}</td><td>${esc(r[7])}</td><td class="num">${r[8] ?? "-"}</td></tr>`).join("")
   }</tbody></table></div>` + (s.length > caseLimit ? `<button class="more" id="morecase">再顯示 30 筆（共 ${s.length} 筆）</button>` : "");
 }
 function yearChart() {
@@ -421,6 +429,7 @@ function drawPanel(rows) {
       <p class="cats">${is.cats.map(c => esc(D.cats[c])).join("、")}</p>
       <p class="cats">${period}${selSy != null ? `｜只看故障：<b>${esc(D.sys[selSy])}</b>　<button class="back" id="clrsy">取消</button>` : ""}</p>`;
   }
+  if (EQF) h += `<p class="eqf">只看設備：<b>${esc(D.names[EQF] || EQF)}</b>${locLink(EQF)}　<button class="back" id="clreq">取消</button></p>`;
   h += `<div class="kpis"><span><b>${t.length}</b>次故障</span><span><b>${hrs.toFixed(0)}</b>維修工時 (h)</span><span><b>${new Set(t.map(r=>r[2]).filter(Boolean)).size}</b>台設備</span></div>`;
   h += yearChart();
   if (!scoped.length) { $("panel").innerHTML = h + `<p class="empty">沒有符合的紀錄。試試較短的關鍵字，或把期間改成「全部期間」。</p>`; return bind(); }
@@ -432,6 +441,7 @@ function drawPanel(rows) {
 }
 function bind() {
   const b = $("back"); if (b) b.onclick = () => { selIsle = null; reset(); render(); };
+  const ce = $("clreq"); if (ce) ce.onclick = () => { EQF = null; reset(); render(); };
   const cs = $("clrsy"); if (cs) cs.onclick = () => { selSy = null; reset(); render(); };
   const g = $("moregrp"); if (g) g.onclick = () => { grpLimit += 8; render(); };
   const c = $("morecase"); if (c) c.onclick = () => { caseLimit += 30; render(); };
@@ -445,7 +455,7 @@ $("chips").addEventListener("click", e => { const b = e.target.closest(".chip");
 $("panel").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   if (b.dataset.sy !== undefined) { const s = +b.dataset.sy; selSy = selSy === s ? null : s; reset(); render(); }
-  else if (b.dataset.eq !== undefined) { $("q").value = b.dataset.eq; reset(); render(); }
+  else if (b.dataset.eq !== undefined) { EQF = b.dataset.eq; reset(); render(); }
   else if (b.dataset.yr !== undefined) { const el = $("period"); el.value = el.value === b.dataset.yr ? "r24" : b.dataset.yr; reset(); render(); }
 });
 ["q","period","norout"].forEach(id => $(id).addEventListener("input", () => { reset(); if (selSy != null && !filtered().some(r => r[5] === selSy)) selSy = null; render(); }));
@@ -464,7 +474,10 @@ function freshControls() {             // drop old listeners before re-booting w
 function startWith(raw, isReboot) {
   RAW = raw;
   if (isReboot) freshControls();
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (/^[A-Z]-\d{3}-\d{3}-\d+(-\d+)?$/.test(h)) EQF = h;
   boot(buildD(raw));
+  if (EQF) { const p = document.getElementById("period"); p.value = "all"; p.dispatchEvent(new Event("input")); }
   document.getElementById("updated").textContent = `資料更新至 ${raw.updated || buildD(raw).cutoff}`;
 }
 async function start() {
